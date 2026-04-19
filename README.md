@@ -44,6 +44,7 @@ travel-agent/
 ## 🚀 快速开始
 ### 1️⃣ 克隆仓库
 git clone https://github.com/Ginkoglow/travel-agent.git
+
 cd travel-agent
 
 2️⃣ 安装依赖
@@ -72,7 +73,7 @@ DB_NAME=travel_agent
 AMAP_API_KEY=你的高德地图API密钥
 
 4️⃣ 初始化数据库
-# PowerShell
+
 Get-Content .\db\init.sql | mysql -u root -p
 
 5️⃣ 启动服务
