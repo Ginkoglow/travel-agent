@@ -25,21 +25,30 @@ class ExportInput(BaseModel):
 async def chat(data: ChatInput, db: Session = Depends(get_db)):
     try:
         session_id = data.session_id or str(uuid.uuid4())
-        plan = agent.chat(data.query)
-        info = agent.parse_info(data.query)
         
-        city = info.get("location", "")
-        travel_date = info.get("travel_date", "")
-        days = info.get("days", 3)
-        pref = info.get("preferences", "")
+        # 1. 解析用户输入
+        parsed = agent.parse_info(data.query)
         
-        qid = create_user_query(db, data.query, city, travel_date, days, pref)
-        create_recommendation(db, qid, "", "", plan)
+        # 2. 生成计划（同时获得天气和POI）
+        weather_info, poi_info, plan = agent.generate_travel_plan(parsed)
+        
+        # 3. 存入数据库（天气和POI不再为空）
+        qid = create_user_query(
+            db,
+            data.query,
+            parsed.get("location", ""),
+            parsed.get("travel_date", ""),
+            parsed.get("days", 3),
+            parsed.get("preferences", "")
+        )
+        create_recommendation(db, qid, weather_info, poi_info, plan)
         
         return {
             "session_id": session_id,
             "query_id": qid,
-            "plan": plan
+            "plan": plan,
+            "weather": weather_info,
+            "poi_info": poi_info
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -65,7 +74,11 @@ async def detail(query_id: int, db: Session = Depends(get_db)):
     rec = get_recommendation_detail(db, query_id)
     if not rec:
         raise HTTPException(status_code=404, detail="未找到该计划")
-    return {"plan": rec.recommendation}
+    return {
+        "plan": rec.recommendation,
+        "weather": rec.weather_info,
+        "poi_info": rec.poi_info
+    }
 
 @app.post("/api/travel/export/pdf")
 async def export_pdf(data: ExportInput):

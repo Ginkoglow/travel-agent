@@ -1,37 +1,43 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+
+# [!] 修正导入路径
 from db.mysql_conn import get_db
 from db.dao import create_user_query, create_recommendation, get_history_list, get_recommendation_detail
-from agent.agent_core import parse_user_query, generate_travel_plan
+from agent.agent_core import TravelAgent
 
 router = APIRouter(prefix="/api", tags=["旅行助手"])
 
+# 创建 TravelAgent 实例
+travel_agent = TravelAgent()
 
 class TravelPlanRequest(BaseModel):
     user_query: str
-
 
 class TravelPlanResponse(BaseModel):
     code: int
     msg: str
     data: dict
 
-
 @router.post("/travel/plan", response_model=TravelPlanResponse)
 def travel_plan(request: TravelPlanRequest, db: Session = Depends(get_db)):
     user_query = request.user_query
-    parsed_data = parse_user_query(user_query)
+    
+    # 1. 解析用户输入
+    parsed_data = travel_agent.parse_info(user_query)
     location = parsed_data["location"]
     travel_date = parsed_data["travel_date"]
     days = parsed_data["days"]
     preferences = parsed_data["preferences"]
-
-    weather_info, poi_info, recommendation = generate_travel_plan(parsed_data)
-
+    
+    # 2. 生成旅行计划
+    weather_info, poi_info, recommendation = travel_agent.generate_travel_plan(parsed_data)
+    
+    # 3. 存储到数据库
     user_query_db = create_user_query(db, user_query, location, travel_date, days, preferences)
     create_recommendation(db, user_query_db.id, weather_info, poi_info, recommendation)
-
+    
     return TravelPlanResponse(
         code=200,
         msg="生成成功",
@@ -44,12 +50,10 @@ def travel_plan(request: TravelPlanRequest, db: Session = Depends(get_db)):
         }
     )
 
-
 @router.get("/history/list")
 def history_list(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     data = get_history_list(db, skip, limit)
     return {"code": 200, "msg": "查询成功", "data": data}
-
 
 @router.get("/history/detail/{query_id}")
 def history_detail(query_id: int, db: Session = Depends(get_db)):
