@@ -1,74 +1,102 @@
-import sys
+import importlib
 import traceback
-import os
 
-# 把travel-agent根目录加入Python路径（确保能导入你的所有模块）
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# ===================== 1. 动态导入工具模块（适配travel-agent含短横线的目录名） =====================
+# 导出工具（替换成你export.py里的真实函数/类名）
+export_module = importlib.import_module("travel-agent.tools.export")
+export_data = export_module.export_data  # 若实际是类：export_data = export_module.ExportExcel().run
 
-# ========== 严格导入你截图里的核心模块 ==========
-try:
-    # 导入你的核心Agent逻辑（agent/agent_core.py）
-    from agent.agent_core import TravelAgent  # 替换成你agent_core.py里的实际类名
-    # 导入你的配置（settings/config.py）
-    from settings.config import settings      # 你的配置实例（按你实际变量名改）
-    # 导入你的工具函数（tools/下的所有文件）
-    from tools.weather import get_weather     # 你的天气工具
-    from tools.poi import get_poi_info         # 你的POI工具
-    from tools.export import export_plan_to_pdf # 你的导出工具
-except ImportError as e:
-    print(f"❌ 导入失败（路径完全按你截图）：{e}")
-    print("💡 请确认：agent/agent_core.py、settings/config.py、tools/下文件存在")
-    sys.exit(1)
+# POI工具（替换成你poi.py里的真实函数/类名）
+poi_module = importlib.import_module("travel-agent.tools.poi")
+get_poi_info = poi_module.get_poi_info  # 若实际是类：get_poi_info = poi_module.POISearch().query
 
-def init_agent():
-    """初始化你的核心Agent（复用你agent_core.py的逻辑）"""
-    try:
-        # 按你agent_core.py的实际初始化方式来（比如传配置）
-        agent = TravelAgent(config=settings)
-        print("✅ 核心Agent初始化成功（复用agent/agent_core.py）")
-        print("💡 支持指令：天气查询/POI查询/导出计划（输入'exit/退出'关闭）")
-        print("-" * 80)
-        return agent
-    except Exception as e:
-        print(f"❌ Agent初始化失败：{str(e)}")
-        traceback.print_exc()  # 终端打印完整报错（不隐藏）
-        sys.exit(1)
+# 天气工具（替换成你weather.py里的真实函数/类名）
+weather_module = importlib.import_module("travel-agent.tools.weather")
+get_weather = weather_module.get_weather  # 若实际是类：get_weather = weather_module.WeatherFetcher().fetch
 
-def handle_user_input(agent, user_input):
-    """处理用户输入：调用你agent_core的核心方法 + tools下的工具"""
-    try:
-        # 调用你agent_core.py里的核心交互方法（比如chat/query）
-        # 替换成你agent_core.py里实际的方法名（比如agent.chat(user_input)）
-        response = agent.chat(user_input)
-        return f"🤖 回复：\n{response}"
-    except Exception as e:
-        # 原生报错直接输出（包含你agent/tools里的报错）
-        error_detail = traceback.format_exc()
-        return f"❌ 处理失败：\n错误原因：{str(e)}\n详细栈：\n{error_detail}"
+# ===================== 2. 工具映射表（对齐业务术语） =====================
+TOOL_MAPPER = {
+    "数据导出": export_data,    # 替换成你实际的指令关键词（比如“导出旅行数据”）
+    "景点查询": get_poi_info,   # 替换成你实际的指令关键词（比如“POI搜索”）
+    "查天气": get_weather       # 替换成你实际的指令关键词（比如“天气查询”）
+}
 
-def terminal_chat_loop():
-    """纯终端交互循环（无网页/接口，报错直接打终端）"""
-    # 初始化你的核心Agent
-    agent = init_agent()
-    
+# ===================== 3. 工具调用处理（对齐参数/异常） =====================
+def handle_tool_call(user_input):
+    """处理用户指令，调用对应工具"""
+    # 遍历工具关键词，匹配指令
+    for keyword, tool_func in TOOL_MAPPER.items():
+        if keyword in user_input:
+            # 提取参数（适配多参数/无参数场景）
+            args_str = user_input.replace(keyword, "").strip()
+            args = args_str.split() if args_str else []
+
+            # 校验参数（按你的工具实际参数调整）
+            if keyword == "景点查询" and len(args) < 2:
+                return "⚠️ 景点查询参数错误！示例：景点查询 北京 故宫"
+            if keyword == "数据导出" and len(args) > 1:
+                return "⚠️ 数据导出参数错误！示例：数据导出 202405 或 数据导出"
+            if keyword == "查天气" and len(args) < 1:
+                return "⚠️ 查天气参数错误！示例：查天气 上海"
+
+            # 调用工具并捕获异常（对齐工具实际异常类型）
+            try:
+                # 适配参数传递：无参/单参/多参
+                if not args:
+                    result = tool_func()
+                elif len(args) == 1:
+                    result = tool_func(args[0])
+                else:
+                    result = tool_func(*args)
+
+                # 格式化返回结果（对齐工具返回值类型）
+                if isinstance(result, dict):
+                    formatted_result = "\n".join([f"  {k}：{v}" for k, v in result.items()])
+                elif isinstance(result, list):
+                    formatted_result = "\n".join([f"  - {item}" for item in result])
+                else:
+                    formatted_result = str(result)
+
+                return f"✅ {keyword}成功！结果：\n{formatted_result}"
+
+            # 精准捕获工具自定义异常（替换成你实际的异常类）
+            except poi_module.POISearchError as e:
+                return f"❌ 景点查询失败：{str(e)}（请检查景点名称是否合法）"
+            except weather_module.WeatherFetchError as e:
+                return f"❌ 查天气失败：{str(e)}（请检查城市名称）"
+            except export_module.ExportError as e:
+                return f"❌ 数据导出失败：{str(e)}（请检查导出日期）"
+            # 通用异常捕获（网络/格式等）
+            except ImportError as e:
+                return f"❌ 工具加载失败：{str(e)}（请检查tools目录文件是否存在）"
+            except Exception as e:
+                return f"❌ 执行失败：{str(e)}\n{traceback.format_exc()[:200]}（异常详情）"
+
+    # 无匹配工具
+    return f"❌ 未识别的指令！支持的指令：{', '.join(TOOL_MAPPER.keys())}"
+
+# ===================== 4. 终端交互主逻辑（对齐业务场景） =====================
+def main():
+    print("="*50)
+    print("✅ 旅行代理终端机器人已启动（基于travel-agent/tools工具集）")
+    print(f"💡 支持指令：{', '.join(TOOL_MAPPER.keys())}")
+    print("💡 示例：景点查询 北京 故宫 | 查天气 上海 | 数据导出 202405")
+    print("💡 输入 'exit'/'退出' 关闭机器人")
+    print("="*50)
+
     while True:
-        # 终端获取输入
-        user_input = input("\n👉 你: ").strip()
-        
+        user_input = input("\n请输入指令：").strip()
         # 退出逻辑
-        if user_input.lower() in ["exit", "退出", "q", "quit"]:
-            print("👋 终端机器人已退出！")
+        if user_input.lower() in ["exit", "退出"]:
+            print("👋 机器人已关闭，再见！")
             break
-        
         # 空输入处理
         if not user_input:
-            print("⚠️  输入不能为空，请重新输入！")
+            print("⚠️ 请输入有效指令！")
             continue
-        
-        # 处理输入并返回结果（全程在终端）
-        result = handle_user_input(agent, user_input)
-        print(result)
+        # 处理工具调用
+        response = handle_tool_call(user_input)
+        print(response)
 
 if __name__ == "__main__":
-    # 启动终端机器人（仅运行这一个文件即可）
-    terminal_chat_loop()
+    main()
