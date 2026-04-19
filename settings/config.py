@@ -19,5 +19,6 @@ class Settings:
     # 第三方服务配置
     AMAP_API_KEY: str = os.getenv("AMAP_API_KEY")
     HEWEATHER_API_KEY: str = os.getenv("HEWEATHER_API_KEY")
+    HEWEATHER_API_HOST: str = os.getenv("HEWEATHER_API_HOST", "devapi.qweather.com")
 
 settings = Settings()

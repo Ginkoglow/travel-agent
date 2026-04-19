@@ -2,13 +2,13 @@ import json
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 
-from settings import settings
+from settings.config import settings
 from tools.weather import get_city_weather
 from tools.poi import get_poi_info
 from agent.prompts import PARSE_PROMPT, TRAVEL_PLAN_PROMPT
 
 llm = ChatOpenAI(
-    api_key=settings.LLM_API_KEY,
+    base_url=settings.LLM_BASE_URL,
     model=settings.LLM_MODEL,
     temperature=0.7
 )

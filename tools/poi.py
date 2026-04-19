@@ -1,5 +1,5 @@
 import requests
-from settings import settings
+from settings.config import settings
 
 def get_poi_info(city: str) -> str:
     """获取景点、美食、酒店信息"""
