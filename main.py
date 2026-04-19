@@ -25,31 +25,32 @@ class ExportInput(BaseModel):
 async def chat(data: ChatInput, db: Session = Depends(get_db)):
     try:
         session_id = data.session_id or str(uuid.uuid4())
-        
-        # 1. 解析用户输入
-        parsed = agent.parse_info(data.query)
-        
-        # 2. 生成计划（同时获得天气和POI）
-        weather_info, poi_info, plan = agent.generate_travel_plan(parsed)
-        
-        # 3. 存入数据库（天气和POI不再为空）
-        qid = create_user_query(
-            db,
-            data.query,
-            parsed.get("location", ""),
-            parsed.get("travel_date", ""),
-            parsed.get("days", 3),
-            parsed.get("preferences", "")
-        )
-        create_recommendation(db, qid, weather_info, poi_info, plan)
-        
-        return {
-            "session_id": session_id,
-            "query_id": qid,
-            "plan": plan,
-            "weather": weather_info,
-            "poi_info": poi_info
-        }
+        result = agent.chat_with_tools(data.query)
+        # 判断是否为旅行计划（返回元组）
+        if isinstance(result, tuple):
+            plan_text, weather, poi = result
+            parsed = agent.parse_info(data.query)
+            qid = create_user_query(
+                db, data.query,
+                parsed.get("location", ""),
+                parsed.get("travel_date", ""),
+                parsed.get("days", 3),
+                parsed.get("preferences", "")
+            )
+            create_recommendation(db, qid, weather, poi, plan_text)
+            return {
+                "session_id": session_id,
+                "query_id": qid,
+                "plan": plan_text,
+                "weather": weather,
+                "poi_info": poi
+            }
+        else:
+            # 普通回复，不存入数据库（或可存对话历史，按需扩展）
+            return {
+                "session_id": session_id,
+                "reply": result
+            }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

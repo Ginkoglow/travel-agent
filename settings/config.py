@@ -16,9 +16,7 @@ class Settings:
     DB_PASSWORD: str = os.getenv("DB_PASSWORD")
     DB_NAME: str = os.getenv("DB_NAME")
 
-    # 第三方服务配置
+    # 高德地图 API（同时用于 POI 和天气）
     AMAP_API_KEY: str = os.getenv("AMAP_API_KEY")
-    HEWEATHER_API_KEY: str = os.getenv("HEWEATHER_API_KEY")
-    HEWEATHER_API_HOST: str = os.getenv("HEWEATHER_API_HOST", "devapi.qweather.com")
 
 settings = Settings()
