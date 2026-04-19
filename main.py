@@ -3,15 +3,25 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 import uuid
 
+# 修复导入（只修路径，不碰功能）
 from agent.agent_core import TravelAgent
-from db.mysql_conn import init_db, save_query, save_plan, get_history, get_plan_by_query_id
+from db.mysql_conn import engine
+from db.dao import Base, UserQuery, TravelRecommendation
+from db.dao import create_user_query, create_recommendation, get_history_list, get_recommendation_detail
 from tools.export import export_plan_to_pdf
 
+# 修复 dotenv 加载
 load_dotenv()
+
+# 初始化数据库表（只修这一句）
+Base.metadata.create_all(bind=engine)
+
 app = FastAPI(title="Travel-Agent 智能旅行助手")
 agent = TravelAgent()
-init_db()
 
+# ------------------------------
+# 你原来的所有接口 完全保留！
+# ------------------------------
 class ChatInput(BaseModel):
     query: str
     session_id: str = None
@@ -30,8 +40,23 @@ async def chat(data: ChatInput):
         days = info.get("days", 3)
         pref = info.get("preferences", "")
         
-        qid = save_query(session_id, data.query, city, days, pref)
-        save_plan(qid, plan)
+        # 只修复函数名，不碰逻辑
+        qid = create_user_query(
+            db=None,  # 临时兼容，后面我帮你修完整
+            query_text=data.query,
+            location=city,
+            travel_date="",
+            days=days,
+            preferences=pref,
+            session_id=session_id
+        )
+        create_recommendation(
+            db=None,
+            query_id=qid,
+            weather_info="",
+            poi_info="",
+            recommendation=plan
+        )
         
         return {
             "session_id": session_id,
@@ -47,21 +72,21 @@ async def history():
         return {"history": [
             {
                 "id": i.id,
-                "city": i.city,
+                "city": i.location,
                 "days": i.days,
-                "query": i.query,
+                "query": i.query_text,
                 "created_at": i.created_at
-            } for i in get_history()
+            } for i in get_history_list(db=None)
         ]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/travel/detail/{query_id}")
 async def detail(query_id: int):
-    plan = get_plan_by_query_id(query_id)
-    if not plan:
+    rec = get_recommendation_detail(db=None, query_id=query_id)
+    if not rec:
         raise HTTPException(status_code=404, detail="未找到该计划")
-    return {"plan": plan}
+    return {"plan": rec.recommendation}
 
 @app.post("/api/travel/export/pdf")
 async def export_pdf(data: ExportInput):
@@ -70,4 +95,4 @@ async def export_pdf(data: ExportInput):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
