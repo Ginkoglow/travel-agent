@@ -18,7 +18,8 @@ def get_location_id(city_name: str):
         print("获取城市ID失败:", e)
     return None
 
-def get_city_weather(city: str):
+# ✅ 修复：支持 city + days 两个参数
+def get_city_weather(city: str, days: int = 3):
     city_id = get_location_id(city)
     if not city_id:
         return "无法获取城市信息"
@@ -35,8 +36,10 @@ def get_city_weather(city: str):
         if data.get("code") != "200":
             return "天气获取失败"
 
-        lines = ["未来三天天气："]
-        for day in data["daily"]:
+        # ✅ 修复：根据 days 返回对应天数
+        weather_list = data["daily"][:days]
+        lines = [f"未来{days}天天气："]
+        for day in weather_list:
             lines.append(f"{day['fxDate']} {day['textDay']} {day['tempMin']}~{day['tempMax']}℃")
         return "\n".join(lines)
     except:
