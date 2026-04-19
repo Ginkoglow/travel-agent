@@ -8,11 +8,3 @@ langchain-openai
 sqlalchemy
 pymysql
 reportlab
-# 基础依赖
-python>=3.8
-# 工具依赖（根据tools下文件补充）
-requests>=2.31.0          # weather.py/ poi.py 查接口用
-pandas>=2.0.0             # export.py 导出Excel/CSV用
-openpyxl>=3.1.2           # pandas导出Excel依赖
-geopy>=2.4.1              # poi.py 地理编码用
-chardet>=5.2.0            # 编码处理（可选）
