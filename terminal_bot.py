@@ -92,11 +92,15 @@ class TerminalBot:
                     # 旅行计划返回元组 (plan_text, weather, poi)
                     plan_text, weather, poi = result
                     print()  # 流式输出已完成，补一个换行
+
+                    # 解析旅行信息（带历史上下文）
+                    parsed = self.agent.parse_info_with_history(self.history)
+
+                    print(f"\n📅 出行日期：{parsed.get('travel_date', '未指定')}")
                     print(f"\n📌 天气参考:\n{weather}")
                     print(f"\n📍 推荐地点:\n{poi}")
 
                     # 保存到数据库
-                    parsed = self.agent.parse_info(user_input)
                     self._save_plan_to_db(user_input, parsed, weather, poi, plan_text)
 
                     # 将助手回复（计划文本）加入历史
@@ -104,6 +108,9 @@ class TerminalBot:
 
                     # 记录最近计划供导出
                     self.last_plan = {"plan": plan_text, "weather": weather, "poi": poi}
+
+                    # 提示导出
+                    print("\n💡 提示：输入 'export pdf' 可将本次旅行计划导出为 PDF 文件。")
                 else:
                     # 普通文本回复
                     print()  # 流式输出已完成，换行
